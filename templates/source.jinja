@@ -1,0 +1,35 @@
+#include "{{header}}"
+
+#include <stdint.h>
+#include <string.h>
+
+{% for stencil in stencils %}
+uint8_t cnp_stencil_{{stencil.name}}_code[] = {
+  {{stencil.code | hex}}
+};
+
+uint8_t* cnp_copy_{{stencil.name}}(uint8_t* stencil_start) {
+  const size_t stencil_size = sizeof(cnp_stencil_{{stencil.name}}_code);
+  memcpy(stencil_start, cnp_stencil_{{stencil.name}}_code, stencil_size);
+  return stencil_start + stencil_size;
+}
+
+void cnp_patch_{{stencil.name}}(uint8_t* stencil_start
+{%- for hole in stencil.holes -%}
+{%- if hole.name != "cnp_stencil_output" -%}
+, {{hole.datatype}} {{hole.name}}
+{%- endif -%}
+{%- endfor -%}
+) {
+  {% for reloc in stencil.relocs %}
+  {%- if reloc.hole.name == "cnp_stencil_output" -%}
+  {
+    uint32_t cnp_stencil_output = sizeof(cnp_stencil_{{stencil.name}}_code) - {{reloc.offset}} - {{reloc.addend}};
+    memcpy(stencil_start + {{reloc.offset}}, &{{reloc.hole.name}}, sizeof({{reloc.hole.name}}));
+  }
+  {%- else -%}
+  memcpy(stencil_start + {{reloc.offset}}, &{{reloc.hole.name}}, sizeof({{reloc.hole.name}}));
+  {%- endif -%}
+  {% endfor %}
+}
+{% endfor %}

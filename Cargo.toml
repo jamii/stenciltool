@@ -1,0 +1,15 @@
+[package]
+name = "stenciltool"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+clap = { version = "4.5.45", features = ["derive"] }
+goblin = "0.10.0"
+hex = "0.4.3"
+minijinja = "2.11.0"
+minijinja-embed = "2.11.0"
+serde = { version = "1.0.219", features = ["serde_derive"] }
+
+[build-dependencies]
+minijinja-embed = "2.11.0"

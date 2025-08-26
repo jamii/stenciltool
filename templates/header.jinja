@@ -1,0 +1,22 @@
+#pragma once
+
+#include <stdint.h>
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+{% for stencil in stencils %}
+uint8_t* cnp_copy_{{stencil.name}}(uint8_t* stencil_start);
+void cnp_patch_{{stencil.name}}(uint8_t* stencil_start
+{%- for hole in stencil.holes -%}
+{%- if hole.name != "cnp_stencil_output" -%}
+, {{hole.datatype}} {{hole.name}}
+{%- endif -%}
+{%- endfor -%}
+);
+{% endfor %}
+
+#ifdef __cplusplus
+}
+#endif
