@@ -10,6 +10,7 @@ struct Hole<'a> {
     name: &'a str,
     index: usize,
     datatype: &'static str,
+    internal: bool,
 }
 
 #[derive(serde::Serialize)]
@@ -59,6 +60,14 @@ fn read_elf<'a: 'b, 'b>(data: &'a Vec<u8>, stencils: &mut Vec<Stencil<'a, 'a>>, 
                     name: name,
                     index: index,
                     datatype: datatype,
+                    internal: true,
+                });
+            } else {
+                holes.push(Hole {
+                    name: name,
+                    index: index,
+                    datatype: "void*",
+                    internal: false,
                 });
             }
             continue
@@ -128,7 +137,7 @@ fn hex_filter(value: minijinja::Value) -> String {
     hex_strings.join(", ")
 }
 
-fn emit_code(stencils : &Vec<Stencil>, header: &str, source: &str) -> Result<(), Box<dyn Error>> {
+fn emit_code(stencils : &Vec<Stencil>, holes : &Vec<Hole>, header: &str, source: &str) -> Result<(), Box<dyn Error>> {
     for stencil in stencils.iter() {
         println!("{}: {}", stencil.name, hex::encode(stencil.code));
         for reloc in stencil.relocs.iter() {
@@ -141,7 +150,7 @@ fn emit_code(stencils : &Vec<Stencil>, header: &str, source: &str) -> Result<(),
     minijinja_embed::load_templates!(&mut env);
 
     let source_tmpl = env.get_template("source.jinja").unwrap();
-    let source_rendered = source_tmpl.render(context!(stencils => stencils, header => header)).unwrap();
+    let source_rendered = source_tmpl.render(context!(stencils => stencils, holes => holes, header => header)).unwrap();
     fs::write(source, source_rendered)?;
 
     let header_tmpl = env.get_template("header.jinja").unwrap();
@@ -171,7 +180,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     trim_trailing_jmp(&mut stencils);
     populate_stencil_holes(&mut stencils);
 
-    emit_code(&stencils, &args.header, &args.source)?;
+    emit_code(&stencils, &holes, &args.header, &args.source)?;
 
     Ok(())
 }

@@ -3,6 +3,12 @@
 #include <stdint.h>
 #include <string.h>
 
+{% for hole in holes %}
+{% if not hole.internal %}
+void {{hole.name}}() __attribute__ ((weak));
+{% endif %}
+{% endfor %}
+
 {% for stencil in stencils %}
 uint8_t cnp_stencil_{{stencil.name}}_code[] = {
   {{stencil.code | hex}}
@@ -16,7 +22,7 @@ uint8_t* cnp_copy_{{stencil.name}}(uint8_t* stencil_start) {
 
 void cnp_patch_{{stencil.name}}(uint8_t* stencil_start
 {%- for hole in stencil.holes -%}
-{%- if hole.name != "cnp_stencil_output" -%}
+{%- if hole.name != "cnp_stencil_output" and hole.internal -%}
 , {{hole.datatype}} {{hole.name}}
 {%- endif -%}
 {%- endfor -%}
