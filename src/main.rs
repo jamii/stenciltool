@@ -22,22 +22,22 @@ struct Reloc<'a> {
 }
 
 #[derive(serde::Serialize)]
-struct Stencil<'a, 'b> {
+struct Stencil<'a> {
     name: &'a str,
     address: u64,
     size: u64,
     code: &'a [u8],
-    relocs: Vec<Reloc<'b>>,
-    holes: Vec<&'b Hole<'b>>,
+    relocs: Vec<Reloc<'a>>,
+    holes: Vec<&'a Hole<'a>>,
 }
 
-fn read_elf<'a: 'b, 'b>(data: &'a Vec<u8>, stencils: &mut Vec<Stencil<'a, 'a>>, holes: &'a mut Vec<Hole<'b>>) -> Result<(), Box<dyn Error>> {
+fn read_elf1<'a>(data: &'a Vec<u8>, stencils: &mut Vec<Stencil<'a>>, holes: &mut Vec<Hole<'a>>) -> Result<(), Box<dyn Error>> {
     let object = Object::parse(&*data)?;
     let elf = match object {
         Object::Elf(x) => x,
         _ => unreachable!("object file is not elf"),
     };
-    let (text_index, text) = elf.section_headers.iter().enumerate().find(|(_, shdr)| {
+    let (_, text) = elf.section_headers.iter().enumerate().find(|(_, shdr)| {
         let name = elf.shdr_strtab.get_at(shdr.sh_name);
         name == Some(".text")
     })
@@ -85,6 +85,21 @@ fn read_elf<'a: 'b, 'b>(data: &'a Vec<u8>, stencils: &mut Vec<Stencil<'a, 'a>>, 
         });
     }
 
+    Ok(())
+}
+
+fn read_elf2<'a>(data: &'a Vec<u8>, stencils: &mut Vec<Stencil<'a>>, holes: &'a Vec<Hole<'a>>) -> Result<(), Box<dyn Error>> {
+    let object = Object::parse(&*data)?;
+    let elf = match object {
+        Object::Elf(x) => x,
+        _ => unreachable!("object file is not elf"),
+    };
+    let (text_index, _) = elf.section_headers.iter().enumerate().find(|(_, shdr)| {
+        let name = elf.shdr_strtab.get_at(shdr.sh_name);
+        name == Some(".text")
+    })
+    .expect("No .text segment");
+
     let (_, reloc_section) = elf.shdr_relocs.iter()
         .find(|(idx, _)| *idx==text_index+1)
         .expect("no relocations in .text");
@@ -118,7 +133,7 @@ fn trim_trailing_jmp(stencils : &mut Vec<Stencil>) -> () {
     }
 }
 
-fn populate_stencil_holes<'a>(stencils : &mut Vec<Stencil<'a,'a>>) -> () {
+fn populate_stencil_holes<'a>(stencils : &mut Vec<Stencil<'a>>) -> () {
     // Populate the list of holes used to make codegen eaiser.
     for stencil in stencils.iter_mut() {
         for reloc in stencil.relocs.iter() {
@@ -175,7 +190,8 @@ fn main() -> Result<(), Box<dyn Error>> {
     let mut holes = Vec::<Hole>::new();
     let mut stencils = Vec::<Stencil>::new();
     let data = fs::read(args.object)?;
-    read_elf(&data, &mut stencils, &mut holes)?;
+    read_elf1(&data, &mut stencils, &mut holes)?;
+    read_elf2(&data, &mut stencils, &holes)?;
     
     trim_trailing_jmp(&mut stencils);
     populate_stencil_holes(&mut stencils);
